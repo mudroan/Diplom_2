@@ -2,7 +2,7 @@ package ru.praktikum.dto;
 
 import java.util.ArrayList;
 
-public class OrderRequest {
+public class CreateOrderRequest {
 
     private ArrayList<String> ingredients;
 

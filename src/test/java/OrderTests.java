@@ -1,8 +1,7 @@
+import io.qameta.allure.Issue;
 import io.qameta.allure.junit4.DisplayName;
-import io.restassured.RestAssured;
-import io.restassured.filter.log.RequestLoggingFilter;
-import io.restassured.filter.log.ResponseLoggingFilter;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.After;
 import org.junit.Test;
 import ru.praktikum.steps.OrderSteps;
 import ru.praktikum.steps.UserSteps;
@@ -11,7 +10,7 @@ import java.util.ArrayList;
 
 import static org.hamcrest.CoreMatchers.is;
 
-public class CreateOrderTests {
+public class OrderTests {
 
     private String accessToken;
     private ArrayList<String> ingredients;
@@ -25,22 +24,19 @@ public class CreateOrderTests {
     String name = RandomStringUtils.randomAlphabetic(10);
 
 
-    @Test //можно удалить
+    @Test
     @DisplayName("Получение списка ингредиентов")
     public void getListIngredientsTest() {
-
-        RestAssured.filters (new RequestLoggingFilter (), new ResponseLoggingFilter ());
 
         orderSteps
                 .getIngredients ()
                 .statusCode(200);
     }
 
-    @Test //ошибка, тест возвращзает успешный ответ, но по ОР не должен создаваться
+    @Test
     @DisplayName("Создание заказа без авторизации")
+    @Issue ("Ошибка. ФР: Тест возвращает успешный ответ, ОР: заказ не должен создаваться без авторизации")
     public void  createOrderWithOutAuthorizationTest() {
-        //удалить логирование
-        RestAssured.filters (new RequestLoggingFilter (), new ResponseLoggingFilter ());
 
         userSteps
                 .createUser (email, password, name);
@@ -63,8 +59,6 @@ public class CreateOrderTests {
     @Test
     @DisplayName("Создание заказа с авторизацией")
     public void  createOrderWithAuthorizationTest() {
-        //удалить логирование
-        RestAssured.filters (new RequestLoggingFilter (), new ResponseLoggingFilter ());
 
         userSteps
                 .createUser (email, password, name);
@@ -91,10 +85,8 @@ public class CreateOrderTests {
     }
 
     @Test
-    @DisplayName("Создание заказа с авторизацией без ингредиентов")
+    @DisplayName("Ошибка при создании заказа с авторизацией без ингредиентов")
     public void  createOrderWithAuthorizationWithOutIngredientsTest() {
-        //удалить логирование
-        RestAssured.filters (new RequestLoggingFilter (), new ResponseLoggingFilter ());
 
         userSteps
                 .createUser (email, password, name);
@@ -116,10 +108,8 @@ public class CreateOrderTests {
     }
 
     @Test
-    @DisplayName("Создание заказа без авторизации и без ингредиентов")
+    @DisplayName("Ошибка при создании заказа без авторизации и без ингредиентов")
     public void  createOrderWithOutAuthorizationWithOutIngredientsTest() {
-        //удалить логирование
-        RestAssured.filters (new RequestLoggingFilter (), new ResponseLoggingFilter ());
 
         userSteps
                 .createUser (email, password, name);
@@ -135,10 +125,8 @@ public class CreateOrderTests {
     }
 
     @Test
-    @DisplayName("Создание заказа с невалидным хеш ингредиентов")
+    @DisplayName("Ошибка при создании заказа с невалидным хеш ингредиентов")
     public void  createOrderIncorrectIdTest() {
-        //удалить логирование
-        RestAssured.filters (new RequestLoggingFilter (), new ResponseLoggingFilter ());
 
         userSteps
                 .createUser (email, password, name);
@@ -153,7 +141,8 @@ public class CreateOrderTests {
                 .statusCode(200)
                 .body("success", is (true));
 
-        incorrectIdIngredients.add("Text, https://code.s3.yandex.net/react/code/salad-mobile.png");
+        incorrectIdIngredients
+                .add("Text, https://code.s3.yandex.net/react/code/salad-mobile.png");
 
         orderSteps
                 .createOrder(incorrectIdIngredients)
@@ -163,8 +152,6 @@ public class CreateOrderTests {
     @Test
     @DisplayName("Получение списка заказов авторизованного пользователя")
     public void  getOrderUserListTest() {
-        //удалить логирование
-        RestAssured.filters (new RequestLoggingFilter (), new ResponseLoggingFilter ());
 
         userSteps
                 .createUser (email, password, name);
@@ -190,8 +177,46 @@ public class CreateOrderTests {
                 .body("success", is(true));
 
         orderSteps
-                .getOrders (accessToken)
+                .getOrdersToken (accessToken)
                 .statusCode(200)
                 .body("success", is (true));
+    }
+
+    @Test
+    @DisplayName("Ошибка при получении списка заказов неавторизованного пользователя")
+    public void  getOrdersUnauthorizedUserTest() {
+
+        userSteps
+                .createUser (email, password, name);
+
+        userSteps
+                .loginUser (email, password)
+                .statusCode(200);
+
+        ingredients = orderSteps
+                .getIngredients ()
+                .statusCode(200)
+                .extract().path ("data[0,1]._id");
+
+        orderSteps
+                .createOrder(ingredients)
+                .statusCode (200)
+                .body("success", is(true));
+
+        orderSteps
+                .getOrdersUnauthorizedUser ()
+                .statusCode (401)
+                .body("message", is("You should be authorised"));
+    }
+
+    @After
+    public void tearDown() {
+
+        if (accessToken != null) {
+            userSteps
+                    .delete (accessToken)
+                    .statusCode (202)
+                    .body ("message", is ("User successfully removed"));
+        }
     }
 }
